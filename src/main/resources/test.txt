@@ -1,0 +1,9 @@
+{
+    "table":"FCU001Q",
+    "data":[
+        {"id":"1234","name":"bimal","address":"plantation","company":"office"},
+        {"id":"4321","name":"bandeshwor","address":"plantation","company":"Motorolla"},
+        {"id":"1235","name":"bimal1","address":"plantation","company":"office"},
+        {"id":"4325","name":"bandeshwor1","address":"plantation","company":"Motorolla"}
+    ]
+}
