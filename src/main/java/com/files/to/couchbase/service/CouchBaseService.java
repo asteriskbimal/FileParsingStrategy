@@ -3,16 +3,22 @@ package com.files.to.couchbase.service;
 import com.couchbase.client.java.document.JsonDocument;
 import com.files.to.couchbase.model.IStrategy;
 import com.files.to.couchbase.repository.CouchBaseRepository;
+import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
 import java.util.List;
+import java.util.Map;
 
 
 @Service
 public class CouchBaseService {
 
     private final CouchBaseRepository filerepository;
+
+    @Autowired
+    private final BeanFactory beans;
 
     private final FileParser fileParser;
 
@@ -21,6 +27,8 @@ public class CouchBaseService {
     private String tableName;
 
     private String[] key;
+
+    Map<String,IStrategy> strategies;
 
     public String[] getKey() {
         return key;
@@ -57,13 +65,14 @@ public class CouchBaseService {
     private String dataName;
 
     @Autowired
-    public CouchBaseService(CouchBaseRepository filerepository, FileParser fileParser) {
+    public CouchBaseService(CouchBaseRepository filerepository, FileParser fileParser,BeanFactory beans) {
         this.filerepository = filerepository;
         this.fileParser=fileParser;
+        this.beans=beans;
     }
 
-    public void setStrategy(IStrategy strategy){
-        fileParser.setStrategy(strategy);
+    public void setStrategy(String strategy){
+        fileParser.setStrategy((IStrategy)beans.getBean(strategy));
     }
 
     public void save(){

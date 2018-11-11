@@ -1,6 +1,7 @@
 package com.files.to.couchbase.model;
 
 import com.couchbase.client.java.document.json.JsonObject;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
