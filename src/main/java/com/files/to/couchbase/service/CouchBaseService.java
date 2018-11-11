@@ -17,7 +17,6 @@ public class CouchBaseService {
 
     private final CouchBaseRepository filerepository;
 
-    @Autowired
     private final BeanFactory beans;
 
     private final FileParser fileParser;
@@ -27,8 +26,6 @@ public class CouchBaseService {
     private String tableName;
 
     private String[] key;
-
-    Map<String,IStrategy> strategies;
 
     public String[] getKey() {
         return key;
