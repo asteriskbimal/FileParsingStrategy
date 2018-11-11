@@ -25,9 +25,6 @@ public class Configurations {
     @Value("${couchbase.bucket.host}")
     private String host;
 
-    @Autowired
-    private ApplicationContext applicationContext;
-
     public @Bean Bucket loginBucket() {
 
         Cluster cluster = CouchbaseCluster.create(host);
