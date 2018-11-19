@@ -17,6 +17,8 @@ public class GenericService<T> {
 
     private String filePath;
 
+    private T entity;
+
     public String getFilePath() {
         return filePath;
     }
@@ -31,10 +33,12 @@ public class GenericService<T> {
         this.fileParser=fileParser;
     }
 
-    public void save(T entity){
+    public void saveDocumentsFromfile(T entity){
         List<T> entities= fileParser.parseFile(getFilePath(),entity);
         genericDaoImpl.upsertAll(entities);
     }
 
-
+    public List<T> getAll(T entity){
+        return genericDaoImpl.getAll(entity);
+    }
 }
