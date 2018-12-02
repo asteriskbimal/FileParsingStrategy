@@ -11,5 +11,7 @@ public interface GenericDao<T> {
     T get(String bucketKey,Class<T> entity);
 
     List<T> getAll(T entity);
+    
+     List<T> getRecordsWithQueryParams(Class<T> entity, Map<String,String> queryParams);
 
 }
