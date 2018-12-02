@@ -9,13 +9,14 @@ import flexjson.JSONDeserializer;
 import flexjson.JSONSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
-import rx.Observable;
-
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @Repository
 public class GenericDaoImpl<T> implements GenericDao<T> {
@@ -50,18 +51,18 @@ public class GenericDaoImpl<T> implements GenericDao<T> {
     }
 
     @Override
-    public T upsert(T entity){
+    public Mono<T> upsert(T entity){
         List<String> jsonDocString= new ArrayList<>();
         String compositeKey = createKey(entity);
         RawJsonDocument jsonDoc = serializeToRawJsonDocument(entity, compositeKey);
-        return  bucket
+        Mono.just(entity);
+        return Mono.just(bucket
                     .async()
                     .upsert(jsonDoc)
                     .map(result -> deserializer.deserialize(result.content(),entity.getClass()))
                     .timeout(3, TimeUnit.SECONDS)
                     .toBlocking()
-                    .single();
-
+                    .single());
     }
 
     public RawJsonDocument serializeToRawJsonDocument(T entity,String compositeKey){
@@ -71,30 +72,33 @@ public class GenericDaoImpl<T> implements GenericDao<T> {
     }
 
     @Override
-    public List<T> upsertAll(List<T> entities){
+    public Flux<T> upsertAll(List<T> entities){
         List<T> ent =new ArrayList<>();
-        Observable.from(entities)
-                .subscribe(entity->ent.add(upsert(entity)),
+            Flux.just(entities)
+                .log()
+                .subscribe(
+                        entity->entity.stream().forEach((e)->ent.add(upsert(e).block())),
                         (e)->logger.error(e.getMessage()),
-                        ()->logger.info("Success"));
-        return ent;
+                        ()->logger.info("Success")
+                );
+        return Flux.fromIterable(ent);
     }
 
-    public T get(String bucketKey,Class<T> entity) {
-        return bucket
+    public Mono<T> get(String bucketKey,Class<T> entity) {
+        return Mono.just(bucket
                 .async()
                 .get(bucketKey, RawJsonDocument.class)
                 .map(result -> deserializer.deserialize(result.content(),entity.getClass()))
                 .timeout(3, TimeUnit.SECONDS)
                 .toBlocking()
-                .single();
+                .single());
     }
     
-    public List<T> getAll(T entity){
+    public Flux<T> getAll(T entity){
         List<T> allEntities=new ArrayList<>();
         String queryString =  "select * from `"+bucket.name()+"` where type=$1";
         ParameterizedN1qlQuery query = N1qlQuery.parameterized(queryString, JsonArray.create().add(entity.getClass().getSimpleName()));
-        return bucket
+        return Flux.fromIterable(bucket
                 .async()
                 .query(query)
                 .flatMap(AsyncN1qlQueryResult::rows)
@@ -103,14 +107,14 @@ public class GenericDaoImpl<T> implements GenericDao<T> {
                 .toList()
                 .timeout(3, TimeUnit.SECONDS)
                 .toBlocking()
-                .single();
+                .single());
     }
 
-    public List<T> getRecordsWithQueryParams(Class<T> entity, Map<String,String> queryParams){
+    public Flux<T> getRecordsWithQueryParams(Class<T> entity, Map<String,String> queryParams){
         String queryString =  "select * from `"+bucket.name()+"` where 1=1";
         StringBuilder sb=new StringBuilder(queryString);
         queryParams.forEach((s1, s2) -> sb.append("and "+s1+"="+s2+" "));
-        return bucket
+        return Flux.fromIterable(bucket
                 .async()
                 .query(N1qlQuery.simple(sb.toString()))
                 .flatMap(AsyncN1qlQueryResult::rows)
@@ -119,7 +123,7 @@ public class GenericDaoImpl<T> implements GenericDao<T> {
                 .toList()
                 .timeout(3, TimeUnit.SECONDS)
                 .toBlocking()
-                .single();
+                .single());
     }
 
 
