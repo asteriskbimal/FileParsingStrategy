@@ -51,15 +51,17 @@ public class GenericDaoImpl<T> implements GenericDao<T> {
 
     @Override
     public T upsert(T entity){
-        String jsonDocString="";
+        List<String> jsonDocString= new ArrayList<>();
         String compositeKey = createKey(entity);
         RawJsonDocument jsonDoc = serializeToRawJsonDocument(entity, compositeKey);
-        Observable<RawJsonDocument> retJsonDoc = bucket.async().upsert(jsonDoc);
-        retJsonDoc.subscribe(entity->jsonDocString=entity.content().toString()),
-                        (e)->logger.error(e.getMessage()),
-                        ()->logger.info("Success"));
-        T t = deserializer.deserialize(jsonDocString, entity.getClass());
-        return t;
+        return  bucket
+                    .async()
+                    .upsert(jsonDoc)
+                    .map(result -> deserializer.deserialize(result.content(),entity.getClass()))
+                    .timeout(3, TimeUnit.SECONDS)
+                    .toBlocking()
+                    .single();
+
     }
 
     public RawJsonDocument serializeToRawJsonDocument(T entity,String compositeKey){
@@ -79,24 +81,46 @@ public class GenericDaoImpl<T> implements GenericDao<T> {
     }
 
     public T get(String bucketKey,Class<T> entity) {
-        String jsonDocString="";
-        Observable<RawJsonDocument> retJsonDoc = bucket.async().get(bucketKey, RawJsonDocument.class);
-         retJsonDoc.subscribe(entity->jsonDocString=entity.content().toString()),
-                        (e)->logger.error(e.getMessage()),
-                        ()->logger.info("Success"));
-        T t = deserializer.deserialize(jsonDocString, entity);
-        return t;
+        return bucket
+                .async()
+                .get(bucketKey, RawJsonDocument.class)
+                .map(result -> deserializer.deserialize(result.content(),entity.getClass()))
+                .timeout(3, TimeUnit.SECONDS)
+                .toBlocking()
+                .single();
     }
+    
     public List<T> getAll(T entity){
         List<T> allEntities=new ArrayList<>();
         String queryString =  "select * from `"+bucket.name()+"` where type=$1";
         ParameterizedN1qlQuery query = N1qlQuery.parameterized(queryString, JsonArray.create().add(entity.getClass().getSimpleName()));
-        N1qlQueryResult result = bucket.query(query);
-        result.allRows().stream().forEach((row)->{
-            T t = deserializer.deserialize(row.value().get(bucket.name()).toString(), entity.getClass());
-            allEntities.add(t);
-        });
-        return allEntities;
+        return bucket
+                .async()
+                .query(query)
+                .flatMap(AsyncN1qlQueryResult::rows)
+                .onBackpressureBuffer()
+                .map(result -> deserializer.deserialize(result.value().toString(),entity.getClass()))
+                .toList()
+                .timeout(3, TimeUnit.SECONDS)
+                .toBlocking()
+                .single();
     }
+
+    public List<T> getRecordsWithQueryParams(Class<T> entity, Map<String,String> queryParams){
+        String queryString =  "select * from `"+bucket.name()+"` where 1=1";
+        StringBuilder sb=new StringBuilder(queryString);
+        queryParams.forEach((s1, s2) -> sb.append("and "+s1+"="+s2+" "));
+        return bucket
+                .async()
+                .query(N1qlQuery.simple(sb.toString()))
+                .flatMap(AsyncN1qlQueryResult::rows)
+                .onBackpressureBuffer()
+                .map(result -> deserializer.deserialize(result.value().toString(),entity))
+                .toList()
+                .timeout(3, TimeUnit.SECONDS)
+                .toBlocking()
+                .single();
+    }
+
 
 }
