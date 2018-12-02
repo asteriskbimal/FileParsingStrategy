@@ -24,7 +24,6 @@ public class GenericDaoImpl<T> implements GenericDao<T> {
 
     private final Bucket bucket;
 
-    @Autowired
     public GenericDaoImpl(Bucket bucket) {
         this.bucket = bucket;
     }
@@ -52,10 +51,14 @@ public class GenericDaoImpl<T> implements GenericDao<T> {
 
     @Override
     public T upsert(T entity){
+        String jsonDocString="";
         String compositeKey = createKey(entity);
         RawJsonDocument jsonDoc = serializeToRawJsonDocument(entity, compositeKey);
         Observable<RawJsonDocument> retJsonDoc = bucket.async().upsert(jsonDoc);
-        T t = deserializer.deserialize(retJsonDoc.toString(), entity.getClass());
+        retJsonDoc.subscribe(entity->jsonDocString=entity.content().toString()),
+                        (e)->logger.error(e.getMessage()),
+                        ()->logger.info("Success"));
+        T t = deserializer.deserialize(jsonDocString, entity.getClass());
         return t;
     }
 
@@ -76,8 +79,12 @@ public class GenericDaoImpl<T> implements GenericDao<T> {
     }
 
     public T get(String bucketKey,Class<T> entity) {
+        String jsonDocString="";
         Observable<RawJsonDocument> retJsonDoc = bucket.async().get(bucketKey, RawJsonDocument.class);
-        T t = deserializer.deserialize(retJsonDoc.toString(), entity);
+         retJsonDoc.subscribe(entity->jsonDocString=entity.content().toString()),
+                        (e)->logger.error(e.getMessage()),
+                        ()->logger.info("Success"));
+        T t = deserializer.deserialize(jsonDocString, entity);
         return t;
     }
     public List<T> getAll(T entity){
